@@ -30,7 +30,7 @@ def view_reactionScheme(data, NumReaction_to_view):
 def GeneralCleaning(data):
     '''Step 1 general cleaning'''
     # Drop NA for Yield, Solvent, Reagent
-    data = data.dropna(subset=['Reagent','Solvent (Reaction Details)','Yield', 'Reaction'])
+    data = data.dropna(subset=['Reagent','Solvent (Reaction Details)','Yield', 'Reaction', 'Temperature (Reaction Details) [C]','Time (Reaction Details) [h]'])
 
     # Remove rows that have catalyst
     data = data[data['Catalyst'].isna() == True]
