@@ -224,6 +224,10 @@ def step_1_to_4(data):
     # Concatenate both data
     data = pd.concat([data_single, data_double], axis = 0)
 
+    # Add a new column 'Largest Reactant MW' based on 'Reactant SMILES'
+    data['Largest Reactant MW'] = data.apply(lambda x: round(get_largest_reactant_MW( x['Reactant SMILES']),3), axis=1)
+
+
     print('Data size after step 2 - Verify reaction by change in MW:')
     count_num_reaction(data)
 
