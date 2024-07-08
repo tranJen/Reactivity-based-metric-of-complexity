@@ -1,3 +1,4 @@
+import numpy as np
 from IPython.display import display
 from PIL import Image
 import io
@@ -9,6 +10,9 @@ def count_num_reaction(data):
     '''Count how many reactions there are'''
     rxnCount_data = data['Reaction ID'].nunique()
     print('Number of Reactions:', rxnCount_data)
+
+def count_num_row(data):
+    '''Count how many reactions there are'''
     print('Number of Rows:', data.shape[0])
 
 def view_reactionScheme(data, NumReaction_to_view, duplicate):
@@ -39,5 +43,5 @@ def view_reactionScheme(data, NumReaction_to_view, duplicate):
                     img.save(output, format="PNG")
                     display(Image.open(output))
                 # Return conditions
-                print(row[['Largest Reactant MW', 'Reagent', 'Solvent (Reaction Details)', 'Time (Reaction Details) [h]', 'Temperature (Reaction Details) [C]', 'Yield']])
+                print(row[['Reagent', 'Solvent (Reaction Details)', 'Time (Reaction Details) [h]', 'Temperature (Reaction Details) [C]', 'Yield']])
                 print(f'Link: {row["Links to Reaxys"]}\n')

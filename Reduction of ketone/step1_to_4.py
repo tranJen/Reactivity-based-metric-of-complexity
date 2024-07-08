@@ -6,6 +6,7 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors
 
 
+
 #---------STEP 1: General cleaning data-----------
 
 def GeneralCleaning(data):
@@ -51,6 +52,9 @@ def GeneralCleaning(data):
 
     # Only get the row that has 'percent'
     data = data[data['Yield'].str.contains('percent', case = False)]
+
+    # Drop duplicate rows
+    data = data.drop_duplicates()
     return data
 
 def extract_yield(string):
@@ -67,6 +71,7 @@ def extract_yield(string):
 
 #---------STEP 2: Verify reaction by change in MW-----------
 
+# Process the reaction SMILES
 def getReactandProduct(data):
     '''take a dataframe have reaction SMILES as column named 'Reaction' 
     extract reactants and products into a lists'''
@@ -81,24 +86,44 @@ def getReactandProduct(data):
     data['Product SMILES'] = data['Product SMILES'].astype(str)
     data['Reactant SMILES'] = data['Reactant SMILES'].apply(lambda x: x.split('.'))
     data['Product SMILES'] = data['Product SMILES'].apply(lambda x: x.split('.'))
+    
     return data
 
 def calculate_mw(smiles):
     mol = Chem.MolFromSmiles(smiles)
-    return Chem.Descriptors.MolWt(mol)
-
+    if mol:
+        return Descriptors.MolWt(mol)
+    else:
+        return 0
+    
 def calculate_change_MW(reactants_list,products_list):
     '''calculate change in MW after the reaction'''
     reactants_MW = 0
     products_MW = 0
+    valid_reaction = True
     # Calculate mass of reactants
     for reactant in reactants_list:
-        reactants_MW += calculate_mw(reactant)
+        if reactant is not None:
+            mw = calculate_mw(reactant)
+            if mw == 0:
+                valid_reaction = False
+                break
+            reactants_MW += mw
+            
     # Calculate mass of products       
     for product in products_list:
-        products_MW += calculate_mw(product)
+        if product is not None:
+            mw = calculate_mw(product)
+            if mw == 0:
+                valid_reaction = False
+                break
+            products_MW += mw
     #Calculate change
-    change_MW = products_MW - reactants_MW
+    if valid_reaction:
+        change_MW = products_MW - reactants_MW
+    else:
+        change_MW = -100 
+    
     return change_MW
 
 def get_largest_reactant_MW(reactants_list):
@@ -116,6 +141,8 @@ def get_change_MW(data):
     data = data.dropna(subset=['Reactant SMILES', 'Product SMILES'])
     data['Change_MW'] = data.apply(
         lambda x: round(calculate_change_MW(x['Reactant SMILES'], x['Product SMILES']),3), axis=1)
+        # remove invalid change_MW
+    data = data[data['Change_MW'] != -100]
     return data
 
 def verify_SingleReduc_MW(data):
@@ -135,8 +162,7 @@ def verify_SingleReduc_Stereo_MW(data):
     # and products' SMILES are the same after removing stereochemistry
     # These are reactions making stereoisomers product
 
-    data  = data[(data['Reactant SMILES'].apply(len) == 2) | 
-        (data['Product SMILES'].apply(len) == 2)]
+    data  = data[(data['Reactant SMILES'].apply(len) == 2) & (data['Product SMILES'].apply(len) == 2)]
 
     # Remove stereochemistry for the product 
     data = data.copy() #to avoid SettingWithCopyWarning
@@ -190,9 +216,17 @@ def filter_same_condition(data,reagent, solvent, temp, less_than_time):
     
     data['Reagent'] = data['Reagent'].astype(str)
     data = data[data['Reagent'].isin({reagent})]
+    print(' - After filtering by reagent:')
+    count_num_reaction(data)
     data= data[data['Solvent (Reaction Details)'] == solvent]
+    print(' - After filtering by solvent:')
+    count_num_reaction(data)
     data = data[data['Temperature (Reaction Details) [C]'] == temp]
-    data = data[data['Time (Reaction Details) [h]'] < less_than_time ] 
+    print(' - After filtering by temperature:')
+    count_num_reaction(data)
+    data = data[data['Time (Reaction Details) [h]'] < less_than_time ]
+    print(' - After filtering by time:')
+    count_num_reaction(data) 
 
     return data
 
@@ -208,8 +242,9 @@ def step_1_to_4(data):
     data = data.copy()
     data['Yield (number)'] = data['Yield'].apply(extract_yield)
 
-    print('Data size after step 1 - general cleaning:')
+    print('STEP 1 - general cleaning:')
     count_num_reaction(data)
+    print('---------------------------------------')
 
     # STEP 2: Verify reaction by change in MW
 
@@ -227,25 +262,23 @@ def step_1_to_4(data):
     # Add a new column 'Largest Reactant MW' based on 'Reactant SMILES'
     data['Largest Reactant MW'] = data.apply(lambda x: round(get_largest_reactant_MW( x['Reactant SMILES']),3), axis=1)
 
-
-    print('Data size after step 2 - Verify reaction by change in MW:')
+    print('STEP 2 - Verify reaction by change in MW:')
     count_num_reaction(data)
+    print('---------------------------------------')
 
     #STEP 3: Verify reaction by change in C-O bonds
-
+   
     data = verify_SingleReduc_CObond(data)
-
-    print('Data size after step 3 - Verify reaction by change in C-O bond:')
+    print('STEP 3 - Verify reaction by change in C-O bond:')
     count_num_reaction(data)
+    print('---------------------------------------')
 
     # STEP 4: Ensure consistent reaction conditions
+    print('STEP 4 - Ensure consistent reaction conditions:')
     data = filter_same_condition(data,'sodium tetrahydroborate', 'methanol', '0', 24)
-
-    print('Data size after step 4 - Ensure consistent reaction conditions:')
-    count_num_reaction(data)
+    count_num_row(data)
 
     return data
-
 
 
 
